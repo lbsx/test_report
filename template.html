@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script async src="https://cdn.bootcss.com/echarts/3.8.5/echarts.min.js"></script>
+    <title>测试报告</title>
+    <style>
+        body {
+            font-family: "open sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+            font-size: 13px;
+            color: #676a6c;
+            overflow-x: hidden;
+        }
+
+        label {
+            display: inline-block;
+            max-width: 100%;
+            margin-bottom: 5px;
+            font-weight: 700;
+        }
+
+        .container {
+            margin: 20px;
+        }
+
+        .details {
+            background-color: #ffffff;
+            border: 1px solid #ddd;
+            padding: 20px;
+            position: relative;
+        }
+
+        .details-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+        }
+
+        .details-header-title {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .details-header-actions {
+            display: flex;
+            align-items: center;
+        }
+
+        .details-header-actions .toggle,
+        .details-header-actions .close {
+            cursor: pointer;
+            margin-left: 10px;
+        }
+
+        .details-filters {
+            background-color: #1ab394;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-radius: 5px;
+            color: #fff;
+            margin-top: 10px;
+            text-align: left;
+            font-family: Consolas;
+        }
+
+        .details-filters select {
+            margin-right: 20px;
+            padding: 5px;
+        }
+
+        .stats {
+            background-color: #FFF;
+            padding: 5px 10px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 16px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        .total {
+            color: #318a78;
+        }
+
+        .success {
+            color: #1ab394;
+        }
+
+        .fail {
+            color: #ff4d4f;
+        }
+
+        .skip {
+            color: #faad14;
+        }
+
+        .expand,
+        .collapse {
+            color: #ffffff;
+            background-color: #1ab394;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        .collapse {
+            background-color: #ff4d4f;
+        }
+
+        .details-result {
+            display: none;
+        }
+
+        .details-result.active {
+            display: block;
+        }
+
+        pre {
+            text-align: left;
+        }
+    </style>
+    <style>
+        .summary {
+            margin-top: 20px;
+            display: none;
+        }
+
+        .summary.active {
+            display: flex;
+        }
+
+        .form-container {
+            width: 300px;
+            margin-left: 30px;
+            font-family: Arial, sans-serif;
+            flex: 1;
+
+        }
+
+        .divider {
+            width: 1px;
+            height: 300px;
+            background-color: #ccc;
+
+        }
+
+        .chart-container {
+            flex: 1;
+        }
+
+        .toggleSummary,
+        .closeSummary {
+            cursor: pointer;
+            margin-left: 10px;
+        }
+
+        .form-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .form-group label {
+            width: 80px;
+            margin-right: 10px;
+        }
+
+        .form-group input {
+            /* flex: 1; */
+            width: 300px;
+            padding: 8px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+            color: #333;
+            font-size: 14px;
+        }
+
+
+        .form-group input:focus {
+            outline: none;
+        }
+
+        .form-group input:disabled {
+            background-color: #f0f0f0;
+        }
+
+        .form-group label.passed {
+            color: green;
+        }
+
+        .form-group input.passed {
+            color: green;
+        }
+
+        .form-group label.failed {
+            color: red;
+        }
+
+        .form-group input.failed {
+            color: red;
+        }
+
+        .form-group label.skipped {
+            color: orange;
+        }
+
+        .form-group input.skipped {
+            color: orange;
+        }
+
+        .title {
+            text-align: center;
+            margin: 20px;
+        }
+    </style>
+    
+</head>
+
+<body>
+    <div class="title">
+        <span style="color: #1ab394; font-size: 20px; font-weight: 700" id="reportTitle">测试报告</span>
+    </div>
+    <div class="container">
+        <div class="details" id="summaryDetails">
+            <div class="details-header">
+                <span class="details-header-title">报告汇总</span>
+                <div class="details-header-actions">
+                    <span class="toggleSummary" onclick="toggleSummary()">^</span>
+                    <span class="closeSummary" onclick="closeSummary()">&#x2715</span>
+                </div>
+            </div>
+            <div class="summary active" id="summary">
+                <div class="form-container">
+                    <div class="form-group">
+                        <label for="report-name" class="passed">用例名称:</label>
+                        <input type="text" id="report-name" value="测试default报告" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="total-cases" class="passed">用例总数:</label>
+                        <input type="text" id="total-cases" value="1" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="passed-cases" class="passed">用例通过:</label>
+                        <input type="text" id="passed-cases" class="passed" value="0" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="failed-cases" class="failed">用例失败:</label>
+                        <input type="text" id="failed-cases" class="failed" value="1" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="skipped-cases" class="skipped">用例跳过:</label>
+                        <input type="text" id="skipped-cases" class="skipped" value="0" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="start-time" class="passed">开始时间:</label>
+                        <input type="text" id="start-time" value="2021-01-21 05:19:35" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="run-time" class="passed">运行时间:</label>
+                        <input type="text" id="run-time" value="0s" readonly>
+                    </div>
+                </div>
+                <div class="divider"></div>
+                <div class="chart-container">
+                    <div style="height:350px" id="echarts-map-chart"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="container">
+        <div class="details" id="details">
+            <div class="details-header">
+                <span class="details-header-title">详细数据</span>
+                <div class="details-header-actions">
+                    <span class="toggle" onclick="toggleDetails()">^</span>
+                    <span class="close" onclick="closeDetails()">&#x2715</span>
+                </div>
+            </div>
+            <div class="details-result active" id="details-result">
+                <div class="details-filters">
+                    <div>
+                        <label style="color: snow;">测试类:</label>
+                        <select id="testTypeSelect" onchange="filterTable()">
+                            <option value="all">全部</option>
+                            <!-- <option value="Test">Test</option> -->
+                        </select>
+                        <label style="color: snow;">结果:</label>
+                        <select id="result" onchange="filterTable()">
+                            <option value="all">全部</option>
+                            <option value="success">成功</option>
+                            <option value="fail">失败</option>
+                            <option value="skip">跳过</option>
+                        </select>
+                    </div>
+                    <div class="stats">
+                        <span class="total">用例数: <span id="total">4</span></span> |
+                        <span class="success">成功: <span id="success">2</span></span> |
+                        <span class="fail">失败: <span id="fail">1</span></span> |
+                        <span class="skip">跳过: <span id="skip">1</span></span>
+                    </div>
+                </div>
+                <div class="details-content" id="details-content">
+                    <table id="testTable">
+                        <thead>
+                            <tr>
+                                <th>编号</th>
+                                <th>测试类</th>
+                                <th>测试方法</th>
+                                <th>用例描述</th>
+                                <th>耗时</th>
+                                <th>结果</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Table rows will be populated here by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+<script>
+    const SUCCESS = "success"
+    const FAIL = "fail"
+    const SKIP = "skip"
+
+    let fail_total = 0
+    let skip_total = 0
+    let pass_total = 0
+    let total = 0
+
+    // {"id": 1, "class": "Test", "method": "test_case1", "description": "null", "time": "5", "result": "success", "log": ""},
+    const testCases = {{ testCases }}
+
+    //修改标题
+    document.getElementById('reportTitle').textContent = "{{report_title}}";
+    const optionsData = new Set();
+    testCases.forEach(testCase => {
+        switch (testCase.result) {
+            case FAIL:
+                fail_total++;
+                break;
+            case SKIP:
+                skip_total++;
+                break;
+            case SUCCESS:
+                pass_total++;
+                break;
+            default:
+                break;
+        }
+        total++;
+        optionsData.add(testCase.class)
+
+    });
+
+    selectElement = document.getElementById('testTypeSelect');
+    optionsData.forEach((option) => {
+        var newOption = document.createElement('option');
+        newOption.value = option;
+        newOption.text = option;
+        selectElement.appendChild(newOption);
+    });
+    let start_time = "{{ start_time }}";
+    let run_time = "{{ run_time }}";
+
+    document.getElementById('total-cases').value = total;
+    document.getElementById('passed-cases').value = pass_total;
+    document.getElementById('failed-cases').value = fail_total;
+    document.getElementById('skipped-cases').value = skip_total;
+    document.getElementById('start-time').value = start_time;
+    document.getElementById('run-time').value = run_time;
+
+    const tableBody = document.querySelector('#testTable tbody');
+
+    function populateTable(filteredCases) {
+        tableBody.innerHTML = '';
+        filteredCases.forEach(testCase => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${testCase.id}</td>
+                <td>${testCase.class}</td>
+                <td>${testCase.method}</td>
+                <td>${testCase.description}</td>
+                <td>${testCase.time}</td>
+                <td class="${testCase.result}">${testCase.result === SUCCESS ? '成功' : testCase.result === FAIL ? '失败' : '跳过'}</td>
+                <td><button class="expand" onclick="toggleLog(${testCase.id}, this)">展开</button></td>
+            `;
+            const logRow = document.createElement('tr');
+            logRow.id = `log-${testCase.id}`;
+            logRow.style.display = 'none';
+            logRow.innerHTML = `
+                <td colspan="7"><pre>${testCase.log}</pre></td>
+            `;
+            tableBody.appendChild(row);
+            tableBody.appendChild(logRow);
+        });
+    }
+
+    function toggleLog(id, button) {
+        const logRow = document.getElementById(`log-${id}`);
+        if (logRow.style.display === 'none') {
+            logRow.style.display = 'table-row';
+            button.textContent = '收缩';
+            button.className = 'collapse';
+        } else {
+            logRow.style.display = 'none';
+            button.textContent = '展开';
+            button.className = 'expand';
+        }
+    }
+
+    function toggleDetails() {
+        const content = document.getElementById('details-result');
+        const toggleButton = document.querySelector('.toggle');
+        if (content.classList.contains('active')) {
+            content.classList.remove('active');
+            toggleButton.textContent = 'v';
+        } else {
+            content.classList.add('active');
+            toggleButton.textContent = '^';
+        }
+    }
+    function toggleSummary() {
+        const content = document.getElementById('summary');
+        const toggleButton = document.querySelector('.toggleSummary');
+        if (content.classList.contains('active')) {
+            content.classList.remove('active');
+            toggleButton.textContent = 'v';
+        } else {
+            content.classList.add('active');
+            toggleButton.textContent = '^';
+        }
+    }
+
+    function closeDetails() {
+        document.getElementById('details').style.display = 'none';
+    }
+    function closeSummary() {
+        document.getElementById('summaryDetails').style.display = 'none';
+    }
+
+    function filterTable() {
+        const testType = document.getElementById('testTypeSelect').value;
+        const result = document.getElementById('result').value;
+        const filteredCases = testCases
+            .filter(testCase => (testType === 'all' || testCase.class === testType) && (result === 'all' || testCase.result === result));
+
+        populateTable(filteredCases);
+        updateStats(filteredCases);
+    }
+
+    function updateStats(filteredCases) {
+        const total = filteredCases.length;
+        const success = filteredCases.filter(testCase => testCase.result === SUCCESS).length;
+        const fail = filteredCases.filter(testCase => testCase.result === FAIL).length;
+        const skip = filteredCases.filter(testCase => testCase.result === SKIP).length;
+
+        document.getElementById('total').textContent = total;
+        document.getElementById('success').textContent = success;
+        document.getElementById('fail').textContent = fail;
+        document.getElementById('skip').textContent = skip;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        populateTable(testCases);
+        updateStats(testCases);
+    });
+
+    function pie() {
+
+        var option = {
+            title: {
+                text: '测试用例运行结果',
+                subtext: '',
+                x: 'center'
+            },
+            tooltip: {
+                trigger: 'item',
+                formatter: "{a} <br/>{b} : {c} ({d}%)"
+            },
+            legend: {
+                orient: 'vertical',
+                left: 'left',
+                data: ['失败', '跳过', '成功']
+            },
+            series: [
+                {
+                    name: '运行结果',
+                    type: 'pie',
+                    radius: '55%',
+                    center: ['50%', '60%'],
+                    data: [
+                        { value: fail_total, name: '失败' },
+                        { value: skip_total, name: '跳过' },
+                        { value: pass_total, name: '成功' }
+                    ],
+                    itemStyle: {
+                        emphasis: {
+                            shadowBlur: 10,
+                            shadowOffsetX: 0,
+                            shadowColor: 'rgba(0, 0, 0, 0.5)'
+                        }
+                    }
+                }
+            ]
+        };
+        var chart = echarts.init(document.getElementById("echarts-map-chart"));
+        chart.setOption(option);
+    }
+
+    window.onload = function () {
+        pie();
+    }
+</script>
+</html>
