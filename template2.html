@@ -107,6 +107,7 @@
             text-align: center;
             word-break: break-all;
         }
+
         td button {
             white-space: nowrap;
         }
@@ -248,6 +249,61 @@
             text-align: center;
             margin: 20px;
         }
+
+        .chart-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 350px;
+            margin: 0;
+            position: relative;
+        }
+
+        #tooltip {
+            position: absolute;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 9999;
+        }
+
+        .legend {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+            cursor: pointer;
+        }
+
+        .legend-color {
+            width: 30px;
+            height: 15px;
+            border-radius: 5px;
+            margin-right: 5px;
+            margin-bottom: 4px;
+        }
+
+        .legend-item label {
+            color: #000000c7;
+            font: 12px Arial, sans-serif;
+        }
+        .legend-item.inactive .legend-color {
+            /* filter: grayscale(100%); */
+            background-color: #ccc !important;
+        }
+
+        .legend-item.inactive label {
+            color: #ccc;
+        }
     </style>
 
 </head>
@@ -297,8 +353,10 @@
                     </div>
                 </div>
                 <div class="divider"></div>
+                <div id="tooltip"></div>
                 <div class="chart-container">
-                    <div style="height:350px" id="echarts-map-chart"></div>
+                    <div class="legend"></div>
+                    <canvas id="myChart"></canvas>
                 </div>
             </div>
         </div>
@@ -505,51 +563,169 @@
         updateStats(testCases);
     });
 
-    function pie() {
+    // pie 
+    const canvas = document.getElementById('myChart');
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = true; // 开启抗锯齿
+    const tooltip = document.getElementById('tooltip');
+    const legendContainer = document.querySelector('.legend');
+    const data = [
+        { name: '跳过', value: skip_total, color: '#2f4554' },
+        { name: '通过', value: pass_total, color: '#61a0a8' },
+        { name: '失败', value: fail_total, color: '#c23531' },
+    ];
+    const dpr = window.devicePixelRatio
+    const logicalWidth = 320
+    const logicalHeight = 320
 
-        var option = {
-            title: {
-                text: '测试用例运行结果',
-                subtext: '',
-                x: 'center'
-            },
-            tooltip: {
-                trigger: 'item',
-                formatter: "{a} <br/>{b} : {c} ({d}%)"
-            },
-            legend: {
-                orient: 'vertical',
-                left: 'left',
-                data: ['失败', '跳过', '成功']
-            },
-            series: [
-                {
-                    name: '运行结果',
-                    type: 'pie',
-                    radius: '55%',
-                    center: ['50%', '60%'],
-                    data: [
-                        { value: fail_total, name: '失败' },
-                        { value: skip_total, name: '跳过' },
-                        { value: pass_total, name: '成功' }
-                    ],
-                    itemStyle: {
-                        emphasis: {
-                            shadowBlur: 10,
-                            shadowOffsetX: 0,
-                            shadowColor: 'rgba(0, 0, 0, 0.5)'
-                        }
-                    }
+    canvas.width = logicalWidth * dpr
+    canvas.height = logicalHeight * dpr
+    canvas.style.width = logicalWidth + 'px'
+    canvas.style.height = logicalHeight + 'px'
+    ctx.scale(dpr, dpr) 
+
+    const centerX = logicalWidth / 2;
+    const centerY = logicalWidth / 2;
+
+    const radius = Math.min(centerX, centerY) * 0.6; // 饼图半径
+    let selectedSlices = data.map((_, index) => index);
+    const selectedPercentage = data.map((item, _) => 0);
+
+    let selectedTotal; // 勾选的标签总值
+    function calcSelectedTotal() {
+        selectedTotal = selectedSlices.reduce((sum, i) => sum + data[i].value, 0);
+    }
+    calcSelectedTotal();
+
+    function calcPercentage() {
+        data.forEach((item, i) => {
+            const num = 100 * item.value / selectedTotal;
+            selectedPercentage[i] = Number.isInteger(num) ? num : num.toFixed(2);
+        });
+
+    }
+    calcPercentage();
+
+    function drawChart(hoveredSlice = -1) {
+        let startAngle = -Math.PI / 4;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        selectedSlices.forEach(index => {
+            const item = data[index];
+            const sliceAngle = (item.value / selectedTotal) * 2 * Math.PI;
+            const endAngle = startAngle + sliceAngle;
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.arc(centerX, centerY, index === hoveredSlice ? radius * 1.1 : radius, startAngle, endAngle);
+            ctx.lineTo(centerX, centerY);
+            ctx.fillStyle = item.color;
+            ctx.fill();
+            ctx.strokeStyle = item.color;  // 设置描边颜色
+            // ctx.lineWidth = 0.1;         // 设置描边宽度为 1 像素
+            ctx.stroke();
+
+            // 计算标签位置
+            const labelAngle = startAngle + sliceAngle / 2;
+            // 绘制连接线
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            const cos = Math.cos(labelAngle);
+            const lineX = centerX + radius * 1.2 * cos;
+            const lineY = centerY + radius * 1.2 * Math.sin(labelAngle);
+            ctx.lineTo(lineX, lineY); 
+            ctx.lineTo(lineX+15*Math.sign(cos), lineY); 
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = item.color;
+            ctx.stroke();
+
+            // 添加标签文本
+            ctx.fillStyle = item.color;
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(item.name, lineX+30*Math.sign(cos), lineY+4);
+
+            startAngle = endAngle;
+
+        });
+    }
+
+    function showTooltip(x, y, item, percentage) {
+        tooltip.textContent = `${item.name}: ${item.value} (${percentage}%)`;
+        tooltip.style.left = `${x}px`;
+        tooltip.style.top = `${y}px`;
+        tooltip.style.opacity = 1;
+    }
+
+    function hideTooltip() {
+        tooltip.style.opacity = 0;
+    }
+
+    function toggleLegendItem(index, legendItem) {
+        if (selectedSlices.includes(index)) {
+            selectedSlices = selectedSlices.filter(i => i !== index);
+            legendItem.classList.add('inactive');
+        } else {
+            selectedSlices.push(index);
+            legendItem.classList.remove('inactive');
+        }
+        calcSelectedTotal();
+        calcPercentage();
+        drawChart();
+    }
+
+    data.forEach((item, index) => {
+        const legendItem = document.createElement('div');
+        legendItem.classList.add('legend-item');
+        const color = document.createElement('div');
+        color.classList.add('legend-color');
+        color.style.backgroundColor = item.color;
+        const label = document.createElement('label');
+        label.textContent = `${item.name}`;
+        legendItem.appendChild(color);
+        legendItem.appendChild(label);
+        legendItem.addEventListener('click', () => toggleLegendItem(index, legendItem));
+        legendContainer.appendChild(legendItem);
+    });
+
+    canvas.addEventListener('mousemove', (event) => {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = event.clientX - rect.left;
+        const mouseY = event.clientY - rect.top;
+        const distance = Math.sqrt((mouseX - centerX) ** 2 + (mouseY - centerY) ** 2);
+        if (distance <= radius) {
+            let angle = Math.atan2(mouseY - centerY, mouseX - centerX);
+            if (angle < -Math.PI / 4) {
+                angle += 2 * Math.PI;
+            }
+
+            let currentSlice = -1;
+            let currentAngle = -Math.PI / 4;
+
+            for (let i = 0; i < selectedSlices.length; i++) {
+                const index = selectedSlices[i];
+                const item = data[index];
+                const sliceAngle = (item.value / selectedTotal) * 2 * Math.PI;
+                const endAngle = currentAngle + sliceAngle;
+                if (angle >= currentAngle && angle < endAngle) {
+                    currentSlice = index;
+                    break;
                 }
-            ]
-        };
-        var chart = echarts.init(document.getElementById("echarts-map-chart"));
-        chart.setOption(option);
-    }
+                currentAngle = endAngle;
+            }
 
-    window.onload = function () {
-        pie();
-    }
+            drawChart(currentSlice);
+            if (currentSlice > -1) {
+                showTooltip(event.clientX, event.clientY, data[currentSlice], selectedPercentage[currentSlice]);
+            } else {
+                hideTooltip();
+            }
+        } else {
+            drawChart();
+            hideTooltip();
+        }
+    });
+
+    drawChart();
 </script>
 
 </html>
