@@ -169,14 +169,12 @@
             margin-left: 30px;
             font-family: Arial, sans-serif;
             flex: 1;
-
         }
 
         .divider {
             width: 1px;
             height: 300px;
             background-color: #ccc;
-
         }
 
         .chart-container {
@@ -296,6 +294,7 @@
             color: #000000c7;
             font: 12px Arial, sans-serif;
         }
+
         .legend-item.inactive .legend-color {
             /* filter: grayscale(100%); */
             background-color: #ccc !important;
@@ -582,7 +581,7 @@
     canvas.height = logicalHeight * dpr
     canvas.style.width = logicalWidth + 'px'
     canvas.style.height = logicalHeight + 'px'
-    ctx.scale(dpr, dpr) 
+    ctx.scale(dpr, dpr)
 
     const centerX = logicalWidth / 2;
     const centerY = logicalWidth / 2;
@@ -609,31 +608,43 @@
     function drawChart(hoveredSlice = -1) {
         let startAngle = -Math.PI / 4;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-
+        const occupancy = {}; // 判断该位置已经存在标签
         selectedSlices.forEach(index => {
+            if (selectedTotal <= 0) {
+                return
+            }
             const item = data[index];
             const sliceAngle = (item.value / selectedTotal) * 2 * Math.PI;
             const endAngle = startAngle + sliceAngle;
-            ctx.beginPath();
-            ctx.moveTo(centerX, centerY);
-            ctx.arc(centerX, centerY, index === hoveredSlice ? radius * 1.1 : radius, startAngle, endAngle);
-            ctx.lineTo(centerX, centerY);
-            ctx.fillStyle = item.color;
-            ctx.fill();
-            ctx.strokeStyle = item.color;  // 设置描边颜色
-            // ctx.lineWidth = 0.1;         // 设置描边宽度为 1 像素
-            ctx.stroke();
+            if (item.value > 0) {
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, index === hoveredSlice ? radius * 1.1 : radius, startAngle, endAngle);
+                ctx.lineTo(centerX, centerY);
+                ctx.fillStyle = item.color;
+                ctx.fill();
+                ctx.strokeStyle = item.color;  // 设置描边颜色
+                // ctx.lineWidth = 0.1;         // 设置描边宽度为 1 像素
+                ctx.stroke();
 
+            }
             // 计算标签位置
             const labelAngle = startAngle + sliceAngle / 2;
             // 绘制连接线
             ctx.beginPath();
-            ctx.moveTo(centerX, centerY);
             const cos = Math.cos(labelAngle);
-            const lineX = centerX + radius * 1.2 * cos;
-            const lineY = centerY + radius * 1.2 * Math.sin(labelAngle);
-            ctx.lineTo(lineX, lineY); 
-            ctx.lineTo(lineX+15*Math.sign(cos), lineY); 
+            const sin = Math.sin(labelAngle);
+            const startX = centerX + radius * cos;
+            const startY = centerY + radius * sin;
+            ctx.moveTo(startX, startY);
+            let lineX = Math.trunc(centerX + radius * 1.2 * cos);
+            let lineY = Math.trunc(centerY + radius * 1.2 * sin);
+            while (occupancy[`${lineX},${lineY}`]) {
+                lineY -= 15 * Math.sign(cos);
+            }
+            occupancy[`${lineX},${lineY}`] = true;
+            ctx.lineTo(lineX, lineY);
+            ctx.lineTo(lineX + 15 * Math.sign(cos), lineY);
             ctx.lineWidth = 1;
             ctx.strokeStyle = item.color;
             ctx.stroke();
@@ -642,7 +653,7 @@
             ctx.fillStyle = item.color;
             ctx.font = '12px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText(item.name, lineX+30*Math.sign(cos), lineY+4);
+            ctx.fillText(item.name, lineX + 30 * Math.sign(cos), lineY + 4);
 
             startAngle = endAngle;
 
