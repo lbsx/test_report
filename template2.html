@@ -591,24 +591,23 @@
     const selectedPercentage = data.map((item, _) => 0);
 
     let selectedTotal; // 勾选的标签总值
-    function calcSelectedTotal() {
+    function selectedChange() {
+        // 更新标签总值
         selectedTotal = selectedSlices.reduce((sum, i) => sum + data[i].value, 0);
-    }
-    calcSelectedTotal();
-
-    function calcPercentage() {
+        // 更新百分比
         data.forEach((item, i) => {
             const num = 100 * item.value / selectedTotal;
             selectedPercentage[i] = Number.isInteger(num) ? num : num.toFixed(2);
         });
 
     }
-    calcPercentage();
+    selectedChange();
 
     function drawChart(hoveredSlice = -1) {
         let startAngle = -Math.PI / 4;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        const occupancy = {}; // 判断该位置已经存在标签
+        const occupancy = new Set(); // 判断该位置已经存在标签
+        let hoveredAngle;
         selectedSlices.forEach(index => {
             if (selectedTotal <= 0) {
                 return
@@ -617,16 +616,19 @@
             const sliceAngle = (item.value / selectedTotal) * 2 * Math.PI;
             const endAngle = startAngle + sliceAngle;
             if (item.value > 0) {
-                ctx.beginPath();
-                ctx.moveTo(centerX, centerY);
-                ctx.arc(centerX, centerY, index === hoveredSlice ? radius * 1.1 : radius, startAngle, endAngle);
-                ctx.lineTo(centerX, centerY);
-                ctx.fillStyle = item.color;
-                ctx.fill();
-                ctx.strokeStyle = item.color;  // 设置描边颜色
-                // ctx.lineWidth = 0.1;         // 设置描边宽度为 1 像素
-                ctx.stroke();
-
+                if (index === hoveredSlice) {
+                    hoveredAngle = [startAngle, endAngle];
+                } else {
+                    ctx.beginPath();
+                    ctx.moveTo(centerX, centerY);
+                    ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+                    ctx.lineTo(centerX, centerY);
+                    ctx.fillStyle = item.color;
+                    ctx.fill();
+                    ctx.strokeStyle = item.color;  // 设置描边颜色
+                    // ctx.lineWidth = 0.1;         // 设置描边宽度为 1 像素
+                    ctx.stroke();
+                }
             }
             // 计算标签位置
             const labelAngle = startAngle + sliceAngle / 2;
@@ -639,10 +641,13 @@
             ctx.moveTo(startX, startY);
             let lineX = Math.trunc(centerX + radius * 1.2 * cos);
             let lineY = Math.trunc(centerY + radius * 1.2 * sin);
-            while (occupancy[`${lineX},${lineY}`]) {
-                lineY -= 15 * Math.sign(cos);
+            while (occupancy.has(lineY)) {
+                lineY -= 2 * Math.sign(cos);
             }
-            occupancy[`${lineX},${lineY}`] = true;
+            for (let i = lineY-12; i < lineY+12; i++) { // 标签范围内都不可使用
+                occupancy.add(i);
+            }
+            
             ctx.lineTo(lineX, lineY);
             ctx.lineTo(lineX + 15 * Math.sign(cos), lineY);
             ctx.lineWidth = 1;
@@ -654,10 +659,21 @@
             ctx.font = '12px Arial';
             ctx.textAlign = 'center';
             ctx.fillText(item.name, lineX + 30 * Math.sign(cos), lineY + 4);
-
             startAngle = endAngle;
 
         });
+        if (hoveredAngle) {
+            // 最后绘制放大的图片，防止被遮盖
+            const item = data[hoveredSlice];
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.arc(centerX, centerY, radius * 1.1 , ...hoveredAngle);
+            ctx.lineTo(centerX, centerY);
+            ctx.fillStyle = item.color;
+            ctx.fill();
+            ctx.strokeStyle = item.color;  // 设置描边颜色
+            ctx.stroke();
+        }
     }
 
     function showTooltip(x, y, item, percentage) {
@@ -679,8 +695,7 @@
             selectedSlices.push(index);
             legendItem.classList.remove('inactive');
         }
-        calcSelectedTotal();
-        calcPercentage();
+        selectedChange();
         drawChart();
     }
 
